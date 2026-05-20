@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:3001" : ""),
+    baseURL: import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:3001" : "https://anubis-ai-u8ar.onrender.com"),
     withCredentials: true,
 });
 
