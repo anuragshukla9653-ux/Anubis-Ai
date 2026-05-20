@@ -13,9 +13,9 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "@langchain/core": "^1.1.42",
-    "@langchain/google-genai": "^2.1.26",
-    "@langchain/mistralai": "^1.0.8",
+    "@langchain/core": "^0.3.80",
+    "@langchain/google-genai": "^0.2.18",
+    "@langchain/mistralai": "^0.2.3",
     "@tavily/core": "^0.7.3",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
