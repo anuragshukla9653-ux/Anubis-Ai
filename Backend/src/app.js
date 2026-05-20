@@ -18,10 +18,10 @@ const allowedOrigins = [
 ].filter(Boolean);
 
 function isAllowedOrigin(origin) {
-  return !origin || 
-         allowedOrigins.includes(origin) || 
-         /^http:\/\/localhost:\d+$/.test(origin) ||
-         /\.onrender\.com$/.test(origin);
+  return !origin ||
+    allowedOrigins.includes(origin) ||
+    /^http:\/\/localhost:\d+$/.test(origin) ||
+    /\.onrender\.com$/.test(origin);
 }
 
 // Middleware
