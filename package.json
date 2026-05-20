@@ -1,0 +1,10 @@
+{
+  "name": "anubis-ai",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "node build.js",
+    "start": "cd Backend && npm start",
+    "dev": "node -e \"console.log('To run in dev mode, run npm run dev inside Frontend and Backend separately.')\""
+  }
+}
