@@ -43,18 +43,21 @@ app.use(
   })
 );
 
-// Root route for status check
-app.get('/', (req, res) => {
-  res.send("Anubis AI Backend Running 🚀");
-});
+// Serve static assets from public folder
+const publicPath = path.join(__dirname, '../public');
+app.use(express.static(publicPath));
 
 // API routes
 app.use('/api/auth', authRouter);
 app.use('/api/chat', chatRouter);
 
-// Fallback 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: 'Not Found' });
+// Wildcard route to serve index.html for client-side routing
+app.get('*', (req, res) => {
+  // Do not serve index.html for API requests
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({ error: 'Not Found' });
+  }
+  res.sendFile(path.join(publicPath, 'index.html'));
 });
 
 export default app;

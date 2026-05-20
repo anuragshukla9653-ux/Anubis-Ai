@@ -1,7 +1,7 @@
 import { io } from "socket.io-client";
 
 let socket;
-const socketUrl = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:3001" : "https://anubis-ai-u8ar.onrender.com");
+const socketUrl = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:3001" : window.location.origin);
 
 export const initializeSocketConnection = () => {
     if (!socket) {
