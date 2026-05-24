@@ -32,6 +32,7 @@ function formatMessage(message) {
         content: message?.content || "",
         role: message?.role || "ai",
         timestamp: message?.createdAt || message?.updatedAt || message?.timestamp || new Date().toISOString(),
+        attachment: message?.attachment,
     };
 }
 
@@ -51,12 +52,12 @@ export const useChat = () => {
     const dispatch = useDispatch();
     const chat = useSelector((state) => state.chat);
 
-    const sendChatMessage = useCallback(async ({ message, chatId }) => {
+    const sendChatMessage = useCallback(async ({ message, chatId, attachment }) => {
         try {
             dispatch(setLoading(true));
             dispatch(clearError());
 
-            const data = await sendChatMessageRequest(message, chatId);
+            const data = await sendChatMessageRequest(message, chatId, attachment);
             const savedChat = data?.chat || data?.data?.chat;
             const savedUserMessage = data?.userMessage;
             const savedAiMessage = data?.aiMessage;
@@ -78,6 +79,7 @@ export const useChat = () => {
                 content: savedUserMessage?.content || data?.data?.userMessage || message,
                 role: savedUserMessage?.role || "user",
                 timestamp: savedUserMessage?.createdAt || savedUserMessage?.timestamp,
+                attachment: savedUserMessage?.attachment || attachment,
             }));
 
             dispatch(addNewMessage({

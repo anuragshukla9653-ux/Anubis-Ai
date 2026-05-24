@@ -214,3 +214,25 @@ export async function verifyEmail(req, res) {
         `);
     }
 }
+
+export async function logout(req, res) {
+    try {
+        res.clearCookie("token", {
+            httpOnly: true,
+            sameSite: "lax",
+            secure: process.env.NODE_ENV === "production",
+        });
+        return res.status(200).json({
+            message: "Logged out successfully",
+            success: true,
+        });
+    } catch (error) {
+        console.error("Logout error:", error);
+        return res.status(500).json({
+            message: "Failed to log out",
+            success: false,
+            error: error.message,
+        });
+    }
+}
+

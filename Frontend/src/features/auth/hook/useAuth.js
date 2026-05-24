@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { clearError, setError, setLoading, setUser } from "../auth.slice.js";
-import { getMe, login, register } from "../service/auth.api.js";
+import { clearError, setError, setLoading, setUser, clearUser } from "../auth.slice.js";
+import { getMe, login, register, logout } from "../service/auth.api.js";
 
 function getErrorMessage(error, fallbackMessage) {
     return error.response?.data?.message || fallbackMessage;
@@ -95,12 +95,29 @@ export function useAuth() {
         }
     }, [dispatch]);
 
+    const handleLogout = useCallback(async () => {
+        try {
+            dispatch(setLoading(true));
+            dispatch(clearError());
+            await logout();
+            dispatch(clearUser());
+        } catch (error) {
+            const message = getErrorMessage(error, "Logout failed");
+            dispatch(setError(message));
+            throw error;
+        } finally {
+            dispatch(setLoading(false));
+        }
+    }, [dispatch]);
+
     return {
         ...auth,
         handleRegister,
         handleLogin,
         loadCurrentUser,
         handleGetMe,
+        handleLogout,
     };
 }
+
  

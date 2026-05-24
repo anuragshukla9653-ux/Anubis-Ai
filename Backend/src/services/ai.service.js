@@ -7,7 +7,12 @@ import { searchInternet } from "./internet.service.js";
 const ChatMessageSchema = z.object({
     role: z.enum([ "user", "ai" ]),
     content: z.string().trim().min(1),
-});
+    attachment: z.object({
+        name: z.string(),
+        mimeType: z.string(),
+        data: z.string(),
+    }).optional(),
+}).passthrough();
 
 const ChatMessagesSchema = z.array(ChatMessageSchema).min(1);
 
@@ -131,11 +136,30 @@ function toMistralMessages(messages) {
         normalizedMessages.pop();
     }
 
-    return normalizedMessages.map((message) => (
-        message.role === "user"
-            ? new HumanMessage(message.content)
-            : new AIMessage(message.content)
-    ));
+    return normalizedMessages.map((message) => {
+        if (message.role === "user") {
+            if (message.attachment) {
+                if (message.attachment.mimeType?.startsWith("image/")) {
+                    return new HumanMessage({
+                        content: [
+                            { type: "text", text: message.content },
+                            {
+                                type: "image_url",
+                                image_url: { url: message.attachment.data },
+                            },
+                        ],
+                    });
+                } else {
+                    return new HumanMessage(
+                        `${message.content}\n\n[Attached File: ${message.attachment.name}]\n\`\`\`\n${message.attachment.data}\n\`\`\``
+                    );
+                }
+            }
+            return new HumanMessage(message.content);
+        } else {
+            return new AIMessage(message.content);
+        }
+    });
 }
 
 async function answerWithSearch(messages) {

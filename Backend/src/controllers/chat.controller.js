@@ -15,10 +15,11 @@ function generateChatTitle(message) {
 export async function sendMessage(req, res) {
     const message = req.body?.message?.trim();
     const chatId = req.body?.chatId || req.body?.chat;
+    const attachment = req.body?.attachment; // { name, mimeType, data }
 
-    if (!message) {
+    if (!message && !attachment) {
         return res.status(400).json({
-            message: "Message is required",
+            message: "Message or attachment is required",
             success: false,
         });
     }
@@ -41,14 +42,19 @@ export async function sendMessage(req, res) {
         } else {
             chat = await chatModel.create({
                 user: req.user.id,
-                title: generateChatTitle(message),
+                title: generateChatTitle(message || attachment?.name || "Attached File"),
             });
         }
 
         const userMessage = await messageModel.create({
             chat: chat._id,
-            content: message,
+            content: message || `Attached: ${attachment.name}`,
             role: "user",
+            attachment: attachment ? {
+                name: attachment.name,
+                mimeType: attachment.mimeType,
+                data: attachment.data,
+            } : undefined,
         });
 
         const previousMessages = await messageModel

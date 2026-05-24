@@ -14,12 +14,32 @@ const initialMessages = [
 ]
 
 function formatTimestamp(value) {
-    const date = value ? new Date(value) : new Date()
+    if (!value) return ''
+    const date = new Date(value)
+    const now = new Date()
 
-    return new Intl.DateTimeFormat('en-IN', {
+    const isToday = date.toDateString() === now.toDateString()
+
+    const yesterday = new Date(now)
+    yesterday.setDate(now.getDate() - 1)
+    const isYesterday = date.toDateString() === yesterday.toDateString()
+
+    const timeStr = new Intl.DateTimeFormat('en-IN', {
         hour: 'numeric',
         minute: '2-digit',
     }).format(date)
+
+    if (isToday) {
+        return `Today, ${timeStr}`
+    } else if (isYesterday) {
+        return `Yesterday, ${timeStr}`
+    } else {
+        const dateStr = new Intl.DateTimeFormat('en-IN', {
+            day: 'numeric',
+            month: 'short',
+        }).format(date)
+        return `${dateStr}, ${timeStr}`
+    }
 }
 
 function getMarkdownProps(props) {
@@ -69,12 +89,15 @@ function MarkdownMessage({ content }) {
 
 function Dashboard() {
     const navigate = useNavigate()
-    const { user, loading, error: authError, loadCurrentUser } = useAuth()
+    const { user, loading, error: authError, loadCurrentUser, handleLogout } = useAuth()
     const hasCheckedSession = useRef(false)
     const messagesEndRef = useRef(null)
+    const fileInputRef = useRef(null)
+    
     const [prompt, setPrompt] = useState('')
     const [chatError, setChatError] = useState('')
     const [isSending, setIsSending] = useState(false)
+    const [attachment, setAttachment] = useState(null)
 
     const {
         initializeSocketConnection,
@@ -146,24 +169,63 @@ function Dashboard() {
         await deleteChat(chatId)
     }
 
+    const handleFileChange = (e) => {
+        const file = e.target.files[0]
+        if (!file) return
+
+        const reader = new FileReader()
+        if (file.type.startsWith('image/')) {
+            reader.readAsDataURL(file)
+            reader.onload = () => {
+                setAttachment({
+                    name: file.name,
+                    mimeType: file.type,
+                    data: reader.result,
+                })
+            }
+        } else {
+            reader.readAsText(file)
+            reader.onload = () => {
+                setAttachment({
+                    name: file.name,
+                    mimeType: file.type,
+                    data: reader.result,
+                })
+            }
+        }
+        e.target.value = ''
+    }
+
+    const handleLogoutClick = async () => {
+        try {
+            await handleLogout()
+            navigate('/login', { replace: true })
+        } catch (err) {
+            console.error("Logout failed:", err)
+        }
+    }
+
     const submitPrompt = async (messageText) => {
         const trimmedMessage = messageText.trim()
 
-        if (!trimmedMessage || isSending) {
+        if (!trimmedMessage && !attachment || isSending) {
             return
         }
 
         setPrompt('')
+        const currentAttachment = attachment
+        setAttachment(null)
         setChatError('')
         setIsSending(true)
 
         try {
-            await sendChatMessage({ message: trimmedMessage, chatId: currentChat })
+            await sendChatMessage({ message: trimmedMessage, chatId: currentChat, attachment: currentAttachment })
         } catch (requestError) {
             const errorMessage =
                 requestError.response?.data?.message || 'Failed to send your message. Please try again.'
 
             setChatError(errorMessage)
+            setAttachment(currentAttachment)
         } finally {
             setIsSending(false)
         }
@@ -174,7 +236,7 @@ function Dashboard() {
 
         const trimmedMessage = prompt.trim();
 
-        if (!trimmedMessage || isSending) return;
+        if (!trimmedMessage && !attachment || isSending) return;
 
         await submitPrompt(trimmedMessage);
     };
@@ -231,9 +293,10 @@ function Dashboard() {
                                         onClick={() => handleOpenChat(chat.id).catch((error) => {
                                             setChatError(error.response?.data?.message || 'Failed to open chat')
                                         })}
-                                        className="min-w-0 flex-1 px-2 py-1 text-left text-sm text-white/90"
+                                        className="min-w-0 flex-1 px-2 py-1 text-left"
                                     >
-                                        <span className="block truncate">{chat.title}</span>
+                                        <span className="block truncate text-sm font-medium text-white/90">{chat.title}</span>
+                                        <span className="block text-xs text-white/40 mt-0.5">{formatTimestamp(chat.lastUpdated)}</span>
                                     </button>
                                     <button
                                         type="button"
@@ -254,6 +317,7 @@ function Dashboard() {
                         onClick={() => {
                             startNewChat()
                             setPrompt('')
+                            setAttachment(null)
                             setChatError('')
                         }}
                         className="relative mt-4 shrink-0 rounded-[1rem] border border-white/15 bg-white/10 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-black/30 backdrop-blur transition duration-200 hover:bg-white/15 active:scale-[0.99]"
@@ -268,9 +332,18 @@ function Dashboard() {
                             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#e38b66]">Chat Section</p>
                             <p className="mt-1 text-sm text-slate-400">Your conversation stays here in one continuous thread.</p>
                         </div>
-                        <p className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm text-slate-300">
-                            {user.username || user.email}
-                        </p>
+                        <div className="flex items-center gap-3">
+                            <p className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm text-slate-300">
+                                {user.username || user.email}
+                            </p>
+                            <button
+                                type="button"
+                                onClick={handleLogoutClick}
+                                className="rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-sm font-semibold text-rose-200 transition hover:bg-rose-500/20 active:scale-[0.98] cursor-pointer"
+                            >
+                                Logout
+                            </button>
+                        </div>
                     </div>
 
                     <div className="dashboard-scrollbar mt-4 min-h-0 flex-1 overflow-y-auto px-1 pb-4 pt-1 sm:px-2">
@@ -287,11 +360,41 @@ function Dashboard() {
                                             }`}
                                     >
                                         {message.role === 'user' ? (
-                                            <p>{message.content}</p>
+                                            <p className="whitespace-pre-wrap">{message.content}</p>
                                         ) : (
                                             <MarkdownMessage content={message.content} />
                                         )}
-                                        <p className="mt-2 text-xs uppercase tracking-[0.2em] text-slate-400">
+
+                                        {message.attachment && (
+                                            <div className="mt-3 p-2 bg-black/30 border border-white/10 rounded-xl max-w-sm flex items-center gap-3">
+                                                {message.attachment.mimeType?.startsWith('image/') ? (
+                                                    <a href={message.attachment.data} target="_blank" rel="noreferrer" className="shrink-0">
+                                                        <img src={message.attachment.data} alt="attachment" className="h-16 w-16 object-cover rounded-lg border border-white/15 hover:opacity-90 transition cursor-pointer" />
+                                                    </a>
+                                                ) : (
+                                                    <div className="h-12 w-12 shrink-0 flex items-center justify-center bg-white/10 rounded-lg text-xl border border-white/15">
+                                                        📄
+                                                    </div>
+                                                )}
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-semibold text-white truncate">{message.attachment.name}</p>
+                                                    <p className="text-[10px] text-slate-400 font-mono mt-0.5">{(message.attachment.mimeType?.split('/')[1] || 'file').toUpperCase()}</p>
+                                                    {!message.attachment.mimeType?.startsWith('image/') && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                alert(`Content of ${message.attachment.name}:\n\n${message.attachment.data.slice(0, 1000)}${message.attachment.data.length > 1000 ? '...' : ''}`)
+                                                            }}
+                                                            className="text-[10px] text-[#e38b66] hover:underline mt-1 block font-medium text-left cursor-pointer"
+                                                        >
+                                                            View Content
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <p className="mt-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
                                             {message.role === 'user' ? 'You' : 'Anubis AI'} | {formatTimestamp(message.timestamp)}
                                         </p>
                                     </div>
@@ -323,23 +426,61 @@ function Dashboard() {
                     </div>
 
                     <form onSubmit={handleSubmit} className="mt-4 shrink-0 rounded-[1.2rem] border border-white/10 bg-white/5 p-2 shadow-xl shadow-black/20">
+                        {attachment && (
+                            <div className="flex items-center gap-3 p-2 bg-slate-900/80 border border-white/10 rounded-[1rem] mb-2 animate-fade-in">
+                                {attachment.mimeType?.startsWith('image/') ? (
+                                    <img src={attachment.data} alt="preview" className="h-12 w-12 object-cover rounded-lg border border-white/20" />
+                                ) : (
+                                    <div className="h-12 w-12 flex items-center justify-center bg-white/10 rounded-lg text-lg border border-white/20">
+                                        📄
+                                    </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-white truncate">{attachment.name}</p>
+                                    <p className="text-xs text-slate-400">{(attachment.mimeType?.split('/')[1] || 'file').toUpperCase()}</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setAttachment(null)}
+                                    className="h-8 w-8 flex items-center justify-center rounded-full bg-white/5 border border-white/10 hover:bg-rose-500/20 hover:text-rose-300 transition text-sm cursor-pointer"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        )}
                         <div className="flex items-center gap-3">
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                className="hidden"
+                                accept="image/*,.txt,.js,.py,.json,.html,.css,.md,.csv,.yaml,.yml"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] border border-white/10 bg-slate-950/90 text-slate-400 hover:text-white hover:border-[#AD4B26]/50 transition cursor-pointer"
+                                title="Attach image or file"
+                            >
+                                📎
+                            </button>
                             <input
                                 type="text"
                                 value={prompt}
                                 onChange={(event) => setPrompt(event.target.value)}
-                                placeholder="Type your message....."
+                                placeholder={attachment ? "Ask about this file/image..." : "Type your message....."}
                                 className="min-w-0 flex-1 rounded-[1rem] border border-white/10 bg-slate-950/90 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#AD4B26] focus:ring-2 focus:ring-[#AD4B26]/30"
                             />
                             <button
                                 type="submit"
-                                disabled={isSending || chatIsLoading || !prompt.trim()}
-                                className="rounded-[1rem] bg-gradient-to-r from-[#AD4B26] to-[#d97706] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#AD4B26]/25 transition duration-200 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                                disabled={isSending || chatIsLoading || (!prompt.trim() && !attachment)}
+                                className="rounded-[1rem] bg-gradient-to-r from-[#AD4B26] to-[#d97706] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#AD4B26]/25 transition duration-200 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
                             >
                                 Send
                             </button>
                         </div>
                     </form>
+
                 </main>
             </div>
         </div>

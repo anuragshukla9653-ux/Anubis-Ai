@@ -18,6 +18,11 @@ const messageSchema = new mongoose.Schema(
       enum: ["user", "ai"],
       index: true,
     },
+    attachment: {
+      name: { type: String },
+      mimeType: { type: String },
+      data: { type: String },
+    },
   },
   {
     timestamps: true,
