@@ -95,21 +95,29 @@ function addDays(date, days) {
 
 function buildSearchQuery(question) {
     const now = new Date();
-    const today = formatDate(now);
-    const yesterday = formatDate(addDays(now, -1));
-    const tomorrow = formatDate(addDays(now, 1));
+    const todayISO = formatDate(now);
+    const yesterdayISO = formatDate(addDays(now, -1));
+    const tomorrowISO = formatDate(addDays(now, 1));
+
+    const todayReadable = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "long", year: "numeric" }).format(now);
+    const yesterdayReadable = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "long", year: "numeric" }).format(addDays(now, -1));
+    const tomorrowReadable = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "long", year: "numeric" }).format(addDays(now, 1));
 
     let query = question
-        .replace(/\byesterday\b/ig, `${yesterday}`)
-        .replace(/\btoday\b/ig, `${today}`)
-        .replace(/\btomorrow\b/ig, `${tomorrow}`);
+        .replace(/\byesterday\b/ig, `${yesterdayReadable}`)
+        .replace(/\btoday\b/ig, `${todayReadable}`)
+        .replace(/\btomorrow\b/ig, `${tomorrowReadable}`);
 
     if (SPORTS_PATTERN.test(question)) {
-        query = `${query} final score result scorecard`;
+        query = `${query} score scorecard results`;
     }
 
     if (/\bipl\b/i.test(question)) {
-        query = `${query} IPL 2026 Cricbuzz ESPNcricinfo`;
+        if (!/202[0-9]/.test(question)) {
+            query = `${query} IPL 2026 Cricbuzz`;
+        } else {
+            query = `${query} Cricbuzz`;
+        }
     }
 
     return query.trim();
@@ -165,10 +173,17 @@ function toMistralMessages(messages) {
 async function answerWithSearch(messages) {
     const latestUserMessage = getLastUserMessage(messages);
     const searchQuery = buildSearchQuery(latestUserMessage.content);
+    
+    // Determine whether to use "news" topic or "general" topic.
+    // Sports scores, stock prices, weather, etc. are best served by "general" search topic.
+    const isNewsQuery = /\b(news|headlines|breaking|announcement|press release|article|articles)\b/i.test(latestUserMessage.content);
+    const topic = isNewsQuery ? "news" : "general";
+    const days = isNewsQuery ? 7 : undefined;
+
     const searchResults = await searchInternet({
         query: searchQuery,
-        topic: "news",
-        days: 7,
+        topic,
+        days,
     });
     const today = formatLongDate(new Date());
 
